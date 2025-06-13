@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <map>
+#include <sstream>
 
 int redLED = 13;
 int greenLED = 8;
@@ -16,7 +17,10 @@ std::map<String, int> ledMap = {
 	{"yellow", yellowLED}
 };
 
-void handleInput(const String& inputString) {
+void handleInput(String& inputString) {
+	// Normalize input.
+	inputString.toLowerCase();
+
 	if (ledMap.count(inputString)) {
 		int pin = ledMap[inputString];
 		digitalWrite(pin, !digitalRead(pin)); // Toggle the LED state
