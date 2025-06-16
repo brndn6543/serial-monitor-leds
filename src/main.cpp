@@ -1,14 +1,14 @@
 #include <Arduino.h>
 #include <map>
-#include <sstream>
 
-int redLED = 13;
-int greenLED = 8;
-int yellowLED = 4;
+int redLED = 11;
+int greenLED = 9;
+int yellowLED = 3;
 int baudRate = 9600;
 
 String inputString = "";
-String prompt = "[+] Please provide a color (red, green, yellow), or off: ";
+String promptColor = "[+] Please provide a color (red, green, yellow), or off: ";
+String promptBrightness = "[+] Please input your desired brightness (1-10): ";
 char receivedChar;
 
 std::map<String, int> ledMap = {
@@ -18,12 +18,33 @@ std::map<String, int> ledMap = {
 };
 
 void handleInput(String& inputString) {
-	// Normalize input.
 	inputString.toLowerCase();
 
 	if (ledMap.count(inputString)) {
 		int pin = ledMap[inputString];
-		digitalWrite(pin, !digitalRead(pin)); // Toggle the LED state
+		Serial.print(promptBrightness);
+		String brightnessInput = "";
+
+		while (true) {
+			if (Serial.available()) {
+				receivedChar = Serial.read();
+
+				if (receivedChar == '\n' || receivedChar == '\r') {
+					if (brightnessInput.length() > 0) break;
+				}
+				else if (receivedChar >= '0' && receivedChar <= '9') {
+					brightnessInput += receivedChar;
+					Serial.print(receivedChar);
+				}
+			}
+		}
+		Serial.println();
+
+		int brightness = brightnessInput.toInt();
+		brightness = constrain(brightness, 1, 10);
+		int pwmValue = map(brightness, 1, 10, 26, 255); // Map brightness from 1-10 to PWM (approx 10%-100%)
+		analogWrite(pin, pwmValue);
+
 	} else if (inputString == "off") {
 		for (const auto& pair : ledMap) {
 			digitalWrite(pair.second, LOW);
@@ -35,19 +56,14 @@ void handleInput(String& inputString) {
 
 void setup() {
 	Serial.begin(baudRate);
-
 	pinMode(redLED, OUTPUT);
 	pinMode(greenLED, OUTPUT);
 	pinMode(yellowLED, OUTPUT);
-
 	while (!Serial) {};
 }
 
 void loop() {
-	int ledArray[] = {redLED, greenLED, yellowLED};
-	Serial.print(prompt);
-
-	/// Empty buffer on loop start.
+	Serial.print(promptColor);
 	inputString = "";
 
 	while (true) {
@@ -55,21 +71,14 @@ void loop() {
 			receivedChar = Serial.read();
 
 			if (receivedChar == '\n' || receivedChar == '\r') {
-				if (inputString.length() > 0) {
-					break;
-				} else {
-					continue;
-				}
+				if (inputString.length() > 0) break;
 			}
-
-			// Handle backspace.
 			else if (receivedChar == 8 || receivedChar == 127) {
 				if (inputString.length() > 0) {
 					inputString.remove(inputString.length() - 1);
-					Serial.print("\b \b"); // Erases characters visually.
+					Serial.print("\b \b");
 				}
 			}
-			// Regular printable characters.
 			else if (receivedChar >= 32 && receivedChar < 126) {
 				inputString += receivedChar;
 				Serial.print(receivedChar);
@@ -78,5 +87,4 @@ void loop() {
 	}
 	Serial.println();
 	handleInput(inputString);
-
 }
